@@ -15,12 +15,6 @@ import (
 
 const ChunkLimit = uint64(1950 * datasize.B) // threshold after which appear LMDB OverflowPages = 4096 / 2 - (keySize + 8)
 
-func ChunkIterator(bm *roaring.Bitmap, target uint64) func() *roaring.Bitmap {
-	return func() *roaring.Bitmap {
-		return CutLeft(bm, target)
-	}
-}
-
 // CutLeft - cut from bitmap `targetSize` bytes from left
 // removing lft part from `bm`
 // returns nil on zero cardinality
@@ -148,6 +142,7 @@ func Get(db ethdb.Getter, bucket string, key []byte, from, to uint32) (*roaring.
 }
 
 // SeekInBitmap - returns value in bitmap which is >= n
+//nolint:deadcode
 func SeekInBitmap(m *roaring.Bitmap, n uint32) (found uint32, ok bool) {
 	i := m.Iterator()
 	i.AdvanceIfNeeded(n)
@@ -156,12 +151,6 @@ func SeekInBitmap(m *roaring.Bitmap, n uint32) (found uint32, ok bool) {
 		found = i.Next()
 	}
 	return found, ok
-}
-
-func ChunkIterator64(bm *roaring64.Bitmap, target uint64) func() *roaring64.Bitmap {
-	return func() *roaring64.Bitmap {
-		return CutLeft64(bm, target)
-	}
 }
 
 // CutLeft - cut from bitmap `targetSize` bytes from left
@@ -175,14 +164,14 @@ func CutLeft64(bm *roaring64.Bitmap, sizeLimit uint64) *roaring64.Bitmap {
 	sz := bm.GetSerializedSizeInBytes()
 	if sz <= sizeLimit {
 		lft := roaring64.New()
-		lft.AddRange(uint64(bm.Minimum()), uint64(bm.Maximum())+1)
+		lft.AddRange(bm.Minimum(), bm.Maximum()+1)
 		lft.And(bm)
 		lft.RunOptimize()
 		bm.Clear()
 		return lft
 	}
 
-	from := uint64(bm.Minimum())
+	from := bm.Minimum()
 	minMax := bm.Maximum() - bm.Minimum()
 	to := sort.Search(int(minMax), func(i int) bool { // can be optimized to avoid "too small steps", but let's leave it for readability
 		lft := roaring64.New() // bitmap.Clear() method intentionally not used here, because then serialized size of bitmap getting bigger
@@ -235,7 +224,7 @@ func TruncateRange64(db ethdb.Database, bucket string, key []byte, to uint64) er
 	}
 
 	if bm.GetCardinality() > 0 && to <= bm.Maximum() {
-		bm.RemoveRange(uint64(to), uint64(bm.Maximum())+1)
+		bm.RemoveRange(to, bm.Maximum()+1)
 	}
 
 	if err := db.Walk(bucket, chunkKey, 0, func(k, v []byte) (bool, error) {

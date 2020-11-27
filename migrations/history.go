@@ -246,11 +246,3 @@ var historyStorageBitmap = Migration{
 		return nil
 	},
 }
-
-func toU32(in []uint64) []uint32 {
-	out := make([]uint32, len(in))
-	for i := range in {
-		out[i] = uint32(in[i])
-	}
-	return out
-}
