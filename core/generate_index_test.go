@@ -2,6 +2,7 @@ package core
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"os"
 	"reflect"
@@ -122,11 +123,11 @@ func TestIndexGenerator_Truncate(t *testing.T) {
 		checkIndex(t, db, indexBucket, hashes[1], 1998, expected[string(hashes[1])][0])
 		checkIndex(t, db, indexBucket, hashes[2], 1998, expected[string(hashes[2])][0])
 		_, err = db.GetIndexChunk(csbucket, hashes[0], 2000)
-		if err != ethdb.ErrKeyNotFound {
+		if !errors.Is(err, ethdb.ErrKeyNotFound) {
 			t.Fatal()
 		}
 		_, err = db.GetIndexChunk(csbucket, hashes[1], 2000)
-		if err != ethdb.ErrKeyNotFound {
+		if !errors.Is(err, ethdb.ErrKeyNotFound) {
 			t.Fatal()
 		}
 		//})
@@ -143,11 +144,11 @@ func TestIndexGenerator_Truncate(t *testing.T) {
 		checkIndex(t, db, indexBucket, hashes[1], 998, expected[string(hashes[1])][0])
 		checkIndex(t, db, indexBucket, hashes[2], 999, expected[string(hashes[2])][0])
 		_, err = db.GetIndexChunk(csbucket, hashes[0], 1000)
-		if err != ethdb.ErrKeyNotFound {
+		if !errors.Is(err, ethdb.ErrKeyNotFound) {
 			t.Fatal()
 		}
 		_, err = db.GetIndexChunk(csbucket, hashes[1], 1000)
-		if err != ethdb.ErrKeyNotFound {
+		if !errors.Is(err, ethdb.ErrKeyNotFound) {
 			t.Fatal()
 		}
 		//})
