@@ -246,6 +246,7 @@ var Buckets = []string{
 	Log,
 	Sequence,
 	EthTx,
+	StorageHistoryBucket64,
 }
 
 // DeprecatedBuckets - list of buckets which can be programmatically deleted - for example after migration
