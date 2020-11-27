@@ -70,8 +70,7 @@ var (
 
 	//key - address hash
 	//value - list of block where it's changed
-	StorageHistoryBucket   = "hST"
-	StorageHistoryBucket64 = "hST2"
+	StorageHistoryBucket = "hST"
 
 	//key - contract code hash
 	//value - contract code
@@ -246,7 +245,6 @@ var Buckets = []string{
 	Log,
 	Sequence,
 	EthTx,
-	StorageHistoryBucket64,
 }
 
 // DeprecatedBuckets - list of buckets which can be programmatically deleted - for example after migration

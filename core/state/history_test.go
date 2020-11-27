@@ -61,7 +61,7 @@ func TestMutation_DeleteTimestamp(t *testing.T) {
 		t.FailNow()
 	}
 
-	index, err := bitmapdb.Get(db, dbutils.AccountsHistoryBucket, addrHashes[0].Bytes(), 0, math.MaxUint32)
+	index, err := bitmapdb.Get64(db, dbutils.AccountsHistoryBucket, addrHashes[0].Bytes(), 0, math.MaxUint32)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,7 +122,7 @@ func TestMutationCommitThinHistory(t *testing.T) {
 			t.Fatal("Accounts not equals")
 		}
 
-		index, err := bitmapdb.Get(db, dbutils.AccountsHistoryBucket, addr.Bytes(), 0, math.MaxUint32)
+		index, err := bitmapdb.Get64(db, dbutils.AccountsHistoryBucket, addr.Bytes(), 0, math.MaxUint32)
 		if err != nil {
 			t.Fatal(err)
 		}

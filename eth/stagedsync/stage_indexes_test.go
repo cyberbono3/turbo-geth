@@ -251,12 +251,12 @@ func generateTestData(t *testing.T, db ethdb.Database, csBucket string, numOfBlo
 func checkIndex(t *testing.T, db ethdb.Getter, bucket string, k []byte, expected []uint64) {
 	t.Helper()
 	k = dbutils.CompositeKeyWithoutIncarnation(k)
-	m, err := bitmapdb.Get(db, bucket, k, 0, math.MaxUint32)
+	m, err := bitmapdb.Get64(db, bucket, k, 0, math.MaxUint32)
 	if err != nil {
 		t.Fatal(err, common.Bytes2Hex(k))
 	}
 	val := m.ToArray()
-	if !reflect.DeepEqual(val, toU32(expected)) {
+	if !reflect.DeepEqual(val, expected) {
 		fmt.Printf("get     : %v\n", val)
 		fmt.Printf("expected: %v\n", toU32(expected))
 		t.Fatal()
