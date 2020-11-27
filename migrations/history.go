@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/RoaringBitmap/roaring"
+	"github.com/RoaringBitmap/roaring/roaring64"
 	"github.com/ledgerwatch/turbo-geth/common/dbutils"
 	"github.com/ledgerwatch/turbo-geth/common/etl"
 	"github.com/ledgerwatch/turbo-geth/ethdb"
@@ -247,10 +248,135 @@ var historyStorageBitmap = Migration{
 	},
 }
 
+var historyStorageBitmap64 = Migration{
+	Name: "history_storage_bitmap_64",
+	Up: func(db ethdb.Database, tmpdir string, progress []byte, CommitProgress etl.LoadCommitHandler) (err error) {
+		logEvery := time.NewTicker(30 * time.Second)
+		defer logEvery.Stop()
+		logPrefix := "history_storage_bitmap"
+
+		const loadStep = "load"
+		var prevK []byte
+		buf := bytes.NewBuffer(nil)
+		r64 := roaring64.New()
+
+		collectorB, err1 := etl.NewCollectorFromFiles(tmpdir + "1") // B - stands for blocks
+		if err1 != nil {
+			return err1
+		}
+		switch string(progress) {
+		case "":
+			// can't use files if progress field not set, clear them
+			if collectorB != nil {
+				collectorB.Close(logPrefix)
+				collectorB = nil
+			}
+
+		case loadStep:
+			if collectorB == nil {
+				return ErrMigrationETLFilesDeleted
+			}
+			defer func() {
+				// don't clean if error or panic happened
+				if err != nil {
+					return
+				}
+				if rec := recover(); rec != nil {
+					panic(rec)
+				}
+				collectorB.Close(logPrefix)
+			}()
+			goto LoadStep
+		}
+
+		collectorB = etl.NewCriticalCollector(tmpdir+"1", etl.NewSortableBuffer(etl.BufferOptimalSize*4))
+		defer func() {
+			// don't clean if error or panic happened
+			if err != nil {
+				return
+			}
+			if rec := recover(); rec != nil {
+				panic(rec)
+			}
+			collectorB.Close(logPrefix)
+		}()
+
+		if err = db.Walk(dbutils.StorageHistoryBucket, nil, 0, func(k, v []byte) (bool, error) {
+			select {
+			default:
+			case <-logEvery.C:
+				log.Info(fmt.Sprintf("[%s] Progress2", logPrefix), "key", fmt.Sprintf("%x", k))
+			}
+			r32 := roaring.New()
+			_, err := r32.FromBuffer(v)
+			if err != nil {
+				return false, err
+			}
+			r64.AddMany(toU64(r32.ToArray()))
+
+			if prevK != nil && !bytes.Equal(k[:52], prevK[:52]) {
+				if err = bitmapdb.WalkChunkWithKeys64(prevK[:52], r64, bitmapdb.ChunkLimit, func(chunkKey []byte, chunk *roaring64.Bitmap) error {
+					buf.Reset()
+					if _, err = chunk.WriteTo(buf); err != nil {
+						return err
+					}
+					return collectorB.Collect(chunkKey, buf.Bytes())
+				}); err != nil {
+					return false, err
+				}
+				r64.Clear()
+			}
+
+			prevK = k
+			return true, nil
+		}); err != nil {
+			return err
+		}
+
+		if prevK != nil {
+			if err = bitmapdb.WalkChunkWithKeys64(prevK[:52], r64, bitmapdb.ChunkLimit, func(chunkKey []byte, chunk *roaring64.Bitmap) error {
+				buf.Reset()
+				if _, err = chunk.WriteTo(buf); err != nil {
+					return err
+				}
+				return collectorB.Collect(chunkKey, buf.Bytes())
+			}); err != nil {
+				return err
+			}
+		}
+
+		if err = db.(ethdb.BucketsMigrator).ClearBuckets(dbutils.StorageHistoryBucket64); err != nil {
+			return fmt.Errorf("clearing the receipt bucket: %w", err)
+		}
+
+		// Commit clearing of the bucket - freelist should now be written to the database
+		if err = CommitProgress(db, []byte(loadStep), false); err != nil {
+			return fmt.Errorf("committing the removal of receipt table: %w", err)
+		}
+
+	LoadStep:
+		// Now transaction would have been re-opened, and we should be re-using the space
+		if err = collectorB.Load(logPrefix, db, dbutils.StorageHistoryBucket64, etl.IdentityLoadFunc, etl.TransformArgs{
+			OnLoadCommit: CommitProgress,
+		}); err != nil {
+			return fmt.Errorf("loading the transformed data back into the bodies table: %w", err)
+		}
+		return nil
+	},
+}
+
 func toU32(in []uint64) []uint32 {
 	out := make([]uint32, len(in))
 	for i := range in {
 		out[i] = uint32(in[i])
+	}
+	return out
+}
+
+func toU64(in []uint32) []uint64 {
+	out := make([]uint64, len(in))
+	for i := range in {
+		out[i] = uint64(in[i])
 	}
 	return out
 }

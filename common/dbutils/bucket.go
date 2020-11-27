@@ -70,7 +70,8 @@ var (
 
 	//key - address hash
 	//value - list of block where it's changed
-	StorageHistoryBucket = "hST"
+	StorageHistoryBucket   = "hST"
+	StorageHistoryBucket64 = "hST2"
 
 	//key - contract code hash
 	//value - contract code
